@@ -1,4 +1,4 @@
-# TS3AudioBot-NetEaseCloudmusic-plugin  
+# TS3AudioBot-NetEaseCloudmusic-plugin  DEV版本[注意DEV版本存在错误或者不稳定性]
 >此插件基于Splamy/TS3AudioBot项目 https://github.com/Splamy/TS3AudioBot   
 >以及网易云音乐 API开发https://github.com/Binaryify/NeteaseCloudMusicApi  
 >若是想要使用此插件，请先根据这两个项目的wiki安装到ts服务器本地(测试过windows系统没有问题，不保证linux是否运行正常)  
