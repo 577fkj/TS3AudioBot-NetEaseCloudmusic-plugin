@@ -1,4 +1,5 @@
-﻿using System.Net;
+using System.Collections;
+using System.Net;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -3073,8 +3074,10 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
     InvokerData tempinvoker;
     public static string cookies1 = "";
     public static bool isEventnotadded = true;
+    public static int playMode = 0;
+    public static int randomPotsition = 0;
     Player player;
-    public static Queue<string> SongQueue= new Queue<string>();
+    public static ArrayList SongQueue= new ArrayList();
     SemaphoreSlim slimlock = new SemaphoreSlim(1, 1);
     public async void Initialize()
     {
@@ -3112,23 +3115,116 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
         await slimlock.WaitAsync();
         try
         {
-            var invoker = getinvoker();
-            var playManager = GetplayManager();
-            if (SongQueue.Count == 0)
+            if (playMode == 0)
             {
-                return;
+                var invoker = getinvoker();
+                var playManager = GetplayManager();
+                if (SongQueue.Count == 0)
+                {
+                    return;
+                }
+
+                SongQueue.RemoveAt(0);
+                string nextsong = (string)SongQueue[0];
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
             }
-            string nextsong = SongQueue.Dequeue();
-            Console.WriteLine(SongQueue.Count().ToString());
-            Console.WriteLine(nextsong);
-            string musicurl = getMusicUrl(nextsong, true);
-            await MainCommands.CommandPlay(playManager, invoker, musicurl);
+
+            if (playMode == 1)
+            {
+                var invoker = getinvoker();
+                var playManager = GetplayManager();
+                if (SongQueue.Count == 0)
+                {
+                    return;
+                }
+                string prevSong = (string)SongQueue[0];
+                SongQueue.RemoveAt(0);
+                string nextsong = (string)SongQueue[0];
+                SongQueue.Add(prevSong);
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
+            }
+
+            if (playMode == 2)
+            {
+                Random ran = new Random();
+                var invoker = getinvoker();
+                var playManager = GetplayManager();
+                if (SongQueue.Count == 0)
+                {
+                    return;
+                }
+                string prevSong = (string)SongQueue[randomPotsition];
+                SongQueue.RemoveAt(randomPotsition);
+                randomPotsition = ran.Next(0, SongQueue.Count - 1);
+                string nextsong = (string)SongQueue[randomPotsition];
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
+            }
+
+            if (playMode == 3)
+            {
+                Random ran = new Random();
+                var invoker = getinvoker();
+                var playManager = GetplayManager();
+                if (SongQueue.Count == 0)
+                {
+                    return;
+                }
+                string prevSong = (string)SongQueue[randomPotsition];
+                SongQueue.RemoveAt(randomPotsition);
+                randomPotsition = ran.Next(0, SongQueue.Count - 1);
+                string nextsong = (string)SongQueue[randomPotsition];
+                SongQueue.Add(prevSong);
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
+            }
         }
         finally
         {
             slimlock.Release();
         }
     }
+
+    [Command("yun mode")]
+    public async Task<string> playmode(int mode)
+    {
+        playMode = mode;
+        if (mode == 0)
+        {
+            return ("当前播放模式为顺序播放");
+        }
+
+        else if (mode == 1)
+        {
+            return ("当前播放模式为顺序循环");
+        }
+
+        else if (mode == 2)
+        {
+            return ("当前播放模式为随机播放");
+        }
+
+        else if (mode == 3)
+        {
+            return ("当前播放模式为随机循环");
+        }
+
+        else
+        {
+            return ("请输入正确的播放模式");
+        }
+    }
+
     [Command("yun gedanid")]
     public async Task<string> playgedan(long id, PlayManager playManager, InvokerData invoker, Ts3Client ts3Client, Player player)
     {
@@ -3150,14 +3246,26 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
         await MainCommands.CommandBotDescriptionSet(ts3Client, gedanname);
         await MainCommands.CommandBotAvatarSet(ts3Client, imgurl);
         await genList(id, SongQueue, ts3Client);
-        string firstmusicid = SongQueue.Dequeue();
+        string firstmusicid;
+        if (playMode == 2 || playMode == 3)
+        {
+            Random ran = new Random();
+            randomPotsition = ran.Next(0, SongQueue.Count - 1);
+            firstmusicid = (string)SongQueue[randomPotsition];
+        }
+        else
+        {
+            randomPotsition = 0;
+            firstmusicid = (string)SongQueue[randomPotsition];
+        }
+        SongQueue.RemoveAt(randomPotsition);
         string musicurl = getMusicUrl(firstmusicid, true);
         Console.WriteLine(firstmusicid);
         await MainCommands.CommandPlay(playManager, invoker, musicurl);
         return ("开始播放歌单");
     }
 
-    public static async Task genList(long id, Queue<string> SongQueue, Ts3Client ts3Client)
+    public static async Task genList(long id, ArrayList SongQueue, Ts3Client ts3Client)
     {
         string gedanid = id.ToString();
         string url = "http://localhost:3000/playlist/track/all?id=" + gedanid;
@@ -3173,7 +3281,7 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
             long musicid = Gedans.songs[i].id;
             if (musicid > 0)
             {
-                SongQueue.Enqueue(musicid.ToString());
+                SongQueue.Add(musicid.ToString());
             }
         }
     }
@@ -3305,13 +3413,26 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
         await MainCommands.CommandBotDescriptionSet(ts3Client, gedanname);
         await MainCommands.CommandBotAvatarSet(ts3Client, imgurl);
         await genList(gedanid, SongQueue, ts3Client);
-        string firstmusicid = SongQueue.Dequeue();
+        string firstmusicid;
+        if (playMode == 2 || playMode == 3)
+        {
+            Random ran = new Random();
+            randomPotsition = ran.Next(0, SongQueue.Count - 1);
+            firstmusicid = (string)SongQueue[randomPotsition];
+        }
+        else
+        {
+            randomPotsition = 0;
+            firstmusicid = (string)SongQueue[randomPotsition];
+        }
+        SongQueue.RemoveAt(randomPotsition);
         string musicurl = getMusicUrl(firstmusicid, true);
         Console.WriteLine(firstmusicid);
         await MainCommands.CommandPlay(playManager, invoker, musicurl);
         return ("开始播放歌单");
     }
 
+    //next 不可用
     [Command("yun next")]
     public async Task<string> CommandYunNext(PlaylistManager playlistManager, ResolveContext resourceFactory, PlayManager playManager, InvokerData invoker, Ts3Client ts3Client)
     {
@@ -3322,12 +3443,37 @@ public class YunPlgun : IBotPlugin /* or ICorePlugin */
             {
                 return("播放列表为空");
             }
-            string nextsong = SongQueue.Dequeue();
-            Console.WriteLine(SongQueue.Count().ToString());
-            Console.WriteLine(nextsong);
-            string musicurl = getMusicUrl(nextsong, true);
-            await MainCommands.CommandPlay(playManager, invoker, musicurl);
-            return ("开始播放下一首音乐");
+
+            if (playMode == 2 || playMode == 3)
+            {
+                Random ran = new Random();
+                randomPotsition = ran.Next(0, SongQueue.Count - 1);
+                string nextsong = (string)SongQueue[randomPotsition];
+                SongQueue.RemoveAt(randomPotsition);
+                if (playMode == 3)
+                {
+                    SongQueue.Add(nextsong);
+                }
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
+                return ("开始播放下一首音乐");
+            }
+            else
+            {
+                string nextsong = (string)SongQueue[0];
+                SongQueue.RemoveAt(0);
+                if (playMode == 1)
+                {
+                    SongQueue.Add(nextsong);
+                }
+                Console.WriteLine(SongQueue.Count.ToString());
+                Console.WriteLine(nextsong);
+                string musicurl = getMusicUrl(nextsong, true);
+                await MainCommands.CommandPlay(playManager, invoker, musicurl);
+                return ("开始播放下一首音乐");
+            }
         }
         else
         {
